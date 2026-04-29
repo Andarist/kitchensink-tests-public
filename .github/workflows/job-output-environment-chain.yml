@@ -1,0 +1,45 @@
+name: Job Output Environment Chain
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  produce_value:
+    runs-on: ubuntu-latest
+    outputs:
+      message: ${{ steps.create_output.outputs.message }}
+    steps:
+      - name: Create output
+        id: create_output
+        run: echo "message=hello from the first job" >> "$GITHUB_OUTPUT"
+
+  consume_first_output:
+    runs-on: ubuntu-latest
+    needs: produce_value
+    environment: sample-environment
+    outputs:
+      chained_message: ${{ steps.create_output.outputs.chained_message }}
+    steps:
+      - name: Consume first job output
+        run: |
+          echo "Received: ${{ needs.produce_value.outputs.message }}"
+
+      - name: Create chained output
+        id: create_output
+        run: |
+          echo "chained_message=${{ needs.produce_value.outputs.message }} -> second job" >> "$GITHUB_OUTPUT"
+
+  consume_second_output:
+    runs-on: ubuntu-latest
+    needs: consume_first_output
+    environment: sample-environment
+    steps:
+      - name: Consume second job output
+        run: |
+          echo "Received: ${{ needs.consume_first_output.outputs.chained_message }}"
