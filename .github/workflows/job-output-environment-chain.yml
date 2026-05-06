@@ -23,9 +23,15 @@ jobs:
     runs-on: ubuntu-latest
     needs: produce_value
     environment: sample-environment
+    permissions:
+      contents: write
     outputs:
       chained_message: ${{ steps.create_output.outputs.chained_message }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Consume first job output
         run: |
           echo "Received: ${{ needs.produce_value.outputs.message }}"
@@ -34,6 +40,23 @@ jobs:
         id: create_output
         run: |
           echo "chained_message=${{ needs.produce_value.outputs.message }} -> second job" >> "$GITHUB_OUTPUT"
+
+      - name: Configure git author
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Create and push protected branch
+        run: |
+          branch_name="protected-$(tr -dc 'a-z0-9' </dev/urandom | head -c 8)"
+          file_name="protected-branch-test.txt"
+          file_text="sample-$(tr -dc 'a-z0-9' </dev/urandom | head -c 12)"
+
+          git switch -c "$branch_name"
+          printf '%s\n' "$file_text" > "$file_name"
+          git add "$file_name"
+          git commit -m "Add protected branch workflow test file"
+          git push origin "$branch_name"
 
   consume_second_output:
     runs-on: ubuntu-latest
